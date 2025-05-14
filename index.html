@@ -1,0 +1,111 @@
+<!DOCTYPE html><head><title>Joeapp</title><link rel="manifest" href="manifest.json"/><style>body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: hidden;
+}
+#mode-tabs > .modetab.active {
+  background-color: color-mix(in srgb, white, yellow 10%);
+}
+
+#newtask-area {
+  border: 1px solid black;
+  display: flex;
+  flex-direction: row;
+}
+#newtask-content-area {
+  flex-grow: 5;
+  display: flex;
+  flex-direction: column;
+}
+#newtask-options-area {
+  width: 40%;
+}
+#newtask-options-area  input {
+  width: 100%;
+}
+#new-inputs-cols {
+  width: 50%;
+}
+#new-parsed-cols {
+  width: 30%;
+}
+#new-labels-cols {
+  width: 20%;
+}
+.new-parsed {
+  text-align: center;
+}
+#new-content {
+  height: 100%;
+  resize: none;
+}
+#new-add {
+  margin-left: 1em;
+  width: 80%;
+}
+
+#all-tasks-container[open] {
+  height: 20vh;
+  margin-bottom: 1.5em;
+}
+#all-tasks-and-search {
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  border: 1px solid black;
+  height: 100%
+}
+#scheduled-container {
+  flex-grow: 4;
+}
+#reschedule-all {
+  background-color: color-mix(in srgb, white, green 10%);
+}
+#scheduled {
+  overflow-y: scroll;
+  border: 1px solid black;
+  height: 90%;
+}
+#scheduled > .scheduled-task {
+  padding: 5px;
+}
+#scheduled > .scheduled-task > .top {
+  display: flex;
+  flex-direction: row;
+}
+#scheduled > .scheduled-task > .top > * {
+  margin-right: 1em;
+}
+#scheduled > :first-child {
+  background-color: color-mix(in srgb, white, blue 10%);
+}
+.task {
+  border: 1px solid rgba(10, 10, 10, 0.2);
+  margin: 5px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+}
+.task > .top {
+  display: flex;
+}
+.task > .top > * {
+  margin-right: 1em;
+}
+.task > .bottom {
+  display: flex;
+  flex-direction: row;
+}
+.task > .bottom > .left {
+  padding-right: 5px;
+  display: flex;
+  flex-direction: column;
+}
+.task > .bottom > .content {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.task.overdue {
+  background-color: color-mix(in srgb, white, red 10%);
+}</style><script src="./index.js"></script><template id="task-template"><div class="task"><div class="top"><span class="priority"></span><span class="due"></span><span class="frequency"></span><span class="duration"></span></div><div class="bottom"><div class="left"><button class="done">Done</button><button class="schedule">Schedule</button></div><p class="content"></p></div></div></template><template id="scheduled-template"><div class="scheduled-task"><div class="top"><div class="datestr"></div><div class="timetostr"></div><button class="unschedule">Unschedule</button></div><div class="task-spot"></div></div></template><body><div id="newtask-area"><div id="newtask-content-area"><div id="newtask-content-top"><span>Content</span><button id="new-add">Add</button></div><textarea id="new-content"></textarea></div><table id="newtask-options-area"><colgroup><col id="new-inputs-cols" span="1"/><col id="new-parsed-cols" span="1"/><col id="new-labels-cols" span="1"/></colgroup><tbody><tr><td><input id="new-frequency" type="text"/></td><td><div class="new-parsed" id="new-frequency-parsed"></div></td><td><span>Frequency</span></td></tr><tr><td><input id="new-base-priority" type="number" value="1"/></td><td><div class="new-parsed" id="new-base-priority-parsed"></div></td><td><span>Priority</span></td></tr><tr><td><input id="new-due" type="text"/></td><td><div class="new-parsed" id="new-due-parsed"></div></td><td><span>Due</span></td></tr><tr><td><input id="new-duration" type="text"/></td><td><div class="new-parsed" id="new-duration-parsed"></div></td><td><span>Duration</span></td></tr><tr><td><input id="new-autoschedule" type="checkbox"/></td><td><span></span></td><td><span id="new-autoschedule-text">Schedule?</span></td></tr></tbody></table></div><details id="all-tasks-container" open="open"><summary>All tasks</summary><div id="all-tasks-and-search"><input type="text" id="task-search"/><div id="all-tasks"></div></div></details><details id="scheduled-container" open="open"><summary>Scheduled</summary><button id="reschedule-all">Reschedule all</button><div id="scheduled"></div></details><div id="due-tasks"></div></body></head>
