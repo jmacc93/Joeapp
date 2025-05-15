@@ -495,8 +495,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const parsedFrequencyElem = document.getElementById('new-frequency-parsed')
   function updateParsedFrequency() {
     const frequency = frequencyInputElem.value
-    const realFrequency = (frequency == "") ? magUnitToDur(5, 'minutes') : strToDur(frequency)
-    parsedFrequencyElem.textContent = prettyDurStr(realFrequency)
+    parsedFrequencyElem.textContent = (frequency == "") ? '' : strToDur(frequency)
   }
   frequencyInputElem.addEventListener('input', updateParsedFrequency)
   updateParsedFrequency()
