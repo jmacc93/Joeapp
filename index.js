@@ -1,9 +1,6 @@
 
 /*
-TOIMPLEMENT:
-no task zones (eg: lunch, night, etc)
-
-TODO:
+Done button should not be so close to schedule button
 Task elements should show all their details (frequency, etc) and that data should be editable
 Some sort of bug when scheduling old tasks amongst other scheduled old tasks: they don't go to the end like they should
 Some problem with interpreting due dates
@@ -143,10 +140,12 @@ function prettyDurStr(durms) {
   const weeks = days / 7
   if(weeks < 1)
     return `${negativestr}${Math.round(days)} day`
-  const months = days / 30
+  const months = weeks / 4
   if(months < 1)
     return `${negativestr}${Math.round(weeks)} wk`
   const years = days / 365
+  if(years < 1)
+    return `${negativestr}${Math.round(months)} mo`
   return `${negativestr}${Math.round(years)} yr`
 }
 
@@ -196,12 +195,53 @@ function containsDayName(str, day) {
 
 const strToDate_days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 function strToDate(str) {
+  if(containsDayName(str, 'today') || containsDayName(str, 'now'))
+    return new Date()
+  // not today, maybe tomorrow?
+  if(containsDayName(str, 'tomorrow'))
+    return new Date()
+  // not tomorrow, so try to parse as a day name
   for(const day of strToDate_days)
     if(containsDayName(str, day))
       return nextDayDate(dayNumbers[day])
+  // not a day name, so try to parse as mm/dd, /dd, or mm/
+  const monthDayMatch = str.match(/(\d{0,2})\/(\d{0,2})/)
+  if(monthDayMatch != null) {
+    let   month = monthDayMatch[1] == '' ? new Date().getMonth() : Number(monthDayMatch[1])
+    const day = monthDayMatch[2] == '' ? new Date().getDate() : Number(monthDayMatch[2])
+    const curDate = new Date()
+    if(day < curDate.getDate())
+      month++
+    const year = month < new Date().getMonth() ? new Date().getFullYear() + 1 : new Date().getFullYear()
+    return new Date(year, month, day)
+  }
+  // not a month/day, so try to parse as a day offset +dd
+  const dayOffsetMatch = str.match(/\+(\d{0,2})/)
+  if(dayOffsetMatch != null) {
+    const dayOffset = Number(dayOffsetMatch[1])
+    const curDate = new Date()
+    const day = curDate.getDate() + dayOffset
+    return new Date(new Date().getFullYear(), curDate.getMonth(), day)
+  }
+  // not a day offset, so try to parse as dd
+  const dayMatch = str.match(/(\d{0,2})/)
+  if(dayMatch != null) {
+    const day = Number(dayMatch[1])
+    const curDate = new Date()
+    const month = day < curDate.getDate() ? curDate.getMonth() + 1 : curDate.getMonth()
+    return new Date(new Date().getFullYear(), month, day)
+  }
+  // unknown
+  return null
 }
 function strToDateNum(str) {
   return strToDate(str).getTime()
+}
+
+function isToday(dateNum) {
+  const nowDate = new Date()
+  const argDate = new Date(dateNum)
+  return (nowDate.getDate() == argDate.getDate()) && (nowDate.getMonth() == argDate.getMonth()) && (nowDate.getFullYear() == argDate.getFullYear())
 }
 
 function prettyDateNumStr(dateNum) {
@@ -213,6 +253,10 @@ function prettyDateNumStrShort(dateNum) {
   const pm = date.getHours() > 12
   const hours = pm ? date.getHours() - 12 : date.getHours()
   return `${date.getMonth()}/${date.getDate()} ${hours}:${date.getMinutes()}${pm ? 'pm' : 'am'}`
+}
+function prettyDateNumStrYearMonth(dateNum) {
+  const date = new Date(dateNum)
+  return `${date.getMonth()}/${date.getDate()}`
 }
 
 function dateIntervalsOverlap(a, b) {
@@ -239,8 +283,6 @@ function intervalRightAfter(interval, durms) {
 // #REGION state
 
 let tasks = []
-let timeBlocks = []
-let noTaskZones = []
 
 async function _dbg_printStorage() {
   const opfsRoot = await navigator.storage.getDirectory()
@@ -254,7 +296,7 @@ async function saveToStorage() {
   const opfsRoot = await navigator.storage.getDirectory()
   const storageFileHandle = await opfsRoot.getFileHandle('storage.json', {create:true})
   const storageWriter = await storageFileHandle.createWritable()
-  await storageWriter.write(JSON.stringify({tasks, timeBlocks, noTaskZones}))
+  await storageWriter.write(JSON.stringify({tasks}))
   await storageWriter.close()
 }
 async function loadFromStorage() {
@@ -266,69 +308,6 @@ async function loadFromStorage() {
     return
   const parsedContents = JSON.parse(contents)
   tasks = parsedContents.tasks
-  timeBlocks = parsedContents.timeBlocks
-  noTaskZones = parsedContents.noTaskZones
-}
-
-// #ENDREGION
-
-
-// #REGION time blocks / scheduled tasks
-
-function findTimeBlock(timeblocks, notaskzones, durms, fromDateNum = nowDateNum()) {
-  // try going from current time first
-  let testInterval = intervalFrom(fromDateNum, durms)
-  if(fitsAtTime(timeblocks, notaskzones, testInterval))
-    return testInterval
-  // else, try adding after currently scheduled tasks
-  for(let i = 0; i < timeblocks.length; i++) {
-    if(timeblocks[i].interval.end < fromDateNum)
-      continue
-    testInterval = intervalRightAfter(timeblocks[i].interval, durms)
-    if(fitsAtTime(timeblocks, notaskzones, testInterval))
-      return testInterval
-  }
-  // nothing fits
-  return undefined
-}
-
-function sortTimeBlocks(timeBlocks) {
-  timeBlocks.sort((a, b)=> a.interval.start - b.interval.start)
-}
-
-function makeScheduledElem(id, interval) {
-  return elemFromTemplate('scheduled-template', {
-    'scheduled-task': n=> n.dataset.id = id,
-    datestr: n=>n.textContent = prettyDateNumStrShort(interval.start),
-    timetostr: n=> {
-      function updateTimeTo() {
-        const nowms = nowDateNum()
-        const diffms = interval.start - nowms
-        n.textContent = Math.abs(diffms) < 1000 ? 'Now' : prettyDurStr(diffms)
-      }
-      const updateId = setInterval(() => { // note: the word 'interval' in setInterval means something fundamentally different from the 'interval' variable above
-        if(!document.body.contains(n)) {
-          clearInterval(updateId)
-          return
-        }
-        updateTimeTo()
-      }, 1000 * 60) // every minute
-      updateTimeTo()
-    },
-    unschedule: n=> n.addEventListener('click', e=> {
-      timeBlocks.splice(timeBlocks.findIndex(b=>b.id == id), 1)
-      saveToStorage()
-      populateScheduledElem()
-    }),
-    'task-spot': n=>n.replaceWith(makeTaskElem(findTaskWithID(id)))
-  })
-}
-
-function populateScheduledElem() {
-  const schedElem = document.getElementById('scheduled')
-  schedElem.innerHTML = ''
-  for(const {id, interval} of timeBlocks)
-    schedElem.appendChild(makeScheduledElem(id, interval))
 }
 
 // #ENDREGION
@@ -341,6 +320,8 @@ function logisticSigmoid(x) {
 }
 
 function calculatePriority(task, M = 3, k = 0.5) {
+  // M is max priority for overdue tasks
+  // k is priority decay rate
   const timeTo = (task.due - nowDateNum()) / (1000 * 60 * 60 * 24) // in days
   const bp = task.basePriority
   if(timeTo > 0)
@@ -349,28 +330,16 @@ function calculatePriority(task, M = 3, k = 0.5) {
     return bp * M * logisticSigmoid(-k * timeTo + Math.log(1/(M - 1)))
 }
 
-function scheduleTask(id) {
-  const task = findTaskWithID(id)
-  const dur = task.duration
-  const newblock = findTimeBlock(timeBlocks, noTaskZones, dur)
-  if(newblock == undefined)
-    throw new Error('Could not find time block')
-  timeBlocks.push({id, interval:newblock})
-  sortTimeBlocks(timeBlocks)
-  populateScheduledElem()
-}
-
 function addNewTask(content, due, duration, basePriority = '1', frequency = '', autoschedule = false) {
-  const realDue = (due == "") ? endOfDayDateNum() : strToDateNum(due) // end of day by default
+  // nowDateNum() + task.frequency
+  const realFrequency = (frequency == "") ? null : strToDur(frequency)
+  const realDue = (due == "") ? (frequency == null ? endOfDayDateNum() : nowDateNum() + realFrequency) : strToDateNum(due) // end of day by default
   const realDur = (duration == "") ? magUnitToDur(5, 'minutes') : strToDur(duration)
   const realBasePriority = parseInt(basePriority)
-  const realFrequency = (frequency == "") ? null : strToDur(frequency)
   const id = randomString(8)
   const newTask = {id, content, due:realDue, duration:realDur, basePriority:realBasePriority, frequency:realFrequency, autoschedule}
   tasks.push(newTask)
   populateAllTasksElem()
-  if(autoschedule)
-    scheduleTask(id)
   saveToStorage()
 }
 
@@ -384,6 +353,14 @@ function findTaskWithID(id) {
   return tasks[findTaskIndex(id)]
 }
 
+function sortTasks() {
+  tasks.sort((a, b)=> {
+    const aPriority = calculatePriority(a)
+    const bPriority = calculatePriority(b)
+    return bPriority - aPriority
+  })
+}
+
 // #ENDREGION
 
 
@@ -391,11 +368,19 @@ function findTaskWithID(id) {
 
 function makeTaskElem(task) {
   return elemFromTemplate('task-template', {
-    priority:  n=> {
+    basepriority:  n=> {
       n.textContent = task.basePriority
+    },
+    priority: n=> {
+      n.textContent = Math.round(calculatePriority(task))
     },
     frequency: n=> {
       n.textContent = task.frequency != undefined ? `Every ${prettyDurStr(task.frequency)}` : ''
+    },
+    timeto: n=> {
+      const nowms = nowDateNum()
+      const diffms = task.due - nowms
+      n.textContent = Math.abs(diffms) < 1000 ? 'Now' : `In ${prettyDurStr(diffms)}`
     },
     duration:  n=> {
       n.textContent = `For ${prettyDurStr(task.duration)}`
@@ -405,7 +390,7 @@ function makeTaskElem(task) {
       if(nowDateNum() > task.due)
         n.classList.add('overdue')
     },
-    due: n=>n.textContent = `Due ${prettyDateNumStrShort(task.due)}`,
+    due: n=>n.textContent = `Due ${isToday(task.due) ? 'Today' : prettyDateNumStrYearMonth(task.due)}`,
     done: n=>{
       const removeTime = 1000
       let mousedownTime = 0
@@ -417,21 +402,13 @@ function makeTaskElem(task) {
         if(curTime - mousedownTime > removeTime) // totally remove, regardless if frequency is set
           tasks.splice(tasks.indexOf(task), 1)
         else if(task.frequency != undefined) // go again later: adjust due date
-          task.due = task.due + task.frequency
+          task.due = nowDateNum() + task.frequency
         else // completely done, so remove
           tasks.splice(tasks.indexOf(task), 1)
-        timeBlocks.splice(timeBlocks.findIndex(b=>b.id == task.id), 1)
         saveToStorage()
         populateAllTasksElem()
-        populateScheduledElem()
       })
     },
-    schedule: n=> n.addEventListener('click', e=> {
-      const presentBlockIndex = timeBlocks.findIndex(b=>b.id == task.id)
-      if(presentBlockIndex != -1) // already present, unschedule before scheduling again
-        timeBlocks.splice(presentBlockIndex, 1)
-      scheduleTask(task.id)
-    }),
     content: n=>n.textContent = task.content
   })
 }
@@ -450,32 +427,7 @@ function populateAllTasksElem() {
 
 document.addEventListener('DOMContentLoaded', async ()=>{
   await loadFromStorage()
-  const newcontent           = document.getElementById('new-content')
-  const newfrequency         = document.getElementById('new-frequency')
-  const newbasepriority      = document.getElementById('new-base-priority')
-  const newdue               = document.getElementById('new-due')
-  const newduration          = document.getElementById('new-duration')
-  const newadd               = document.getElementById('new-add')
-  const newautoschedule      = document.getElementById('new-autoschedule')
-  const newautoscheduletext  = document.getElementById('new-autoschedule-text')
-  newautoscheduletext.addEventListener('click', e=> newautoschedule.checked = !newautoschedule.checked)
-  newadd.addEventListener('click', () => {
-    addNewTask(newcontent.value, newdue.value, newduration.value, newbasepriority.value, newfrequency.value, newautoschedule.checked)
-    newcontent.value = ''
-  })
-  
-  const rescheduleAllElem = document.getElementById('reschedule-all')
-  rescheduleAllElem.addEventListener('click', e=>{
-    const priorityOrderedBlocks = structuredClone(timeBlocks)
-    for(const block of priorityOrderedBlocks)
-      block.task = findTaskWithID(block.id)
-    priorityOrderedBlocks.sort((a, b) => calculatePriority(b.task) - calculatePriority(a.task))
-    print(priorityOrderedBlocks.map(b=>calculatePriority(b.task)))
-    const ids = priorityOrderedBlocks.map(b=>b.id)
-    timeBlocks = []
-    for(const id of ids)
-      scheduleTask(id)
-  })
+  sortTasks()
   
   const taskSearchElem = document.getElementById('task-search')
   taskSearchElem.addEventListener('input', e=>{
@@ -489,13 +441,25 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     }
   })
   
-  
+  const addButtonElem = document.getElementById('new-add')
+  addButtonElem.addEventListener('click', () => {
+    const newcontent           = document.getElementById('new-content')
+    const newfrequency         = document.getElementById('new-frequency')
+    const newbasepriority      = document.getElementById('new-base-priority')
+    const newdue               = document.getElementById('new-due')
+    const newduration          = document.getElementById('new-duration')
+    addNewTask(newcontent.value, newdue.value, newduration.value, newbasepriority.value, newfrequency.value)
+    newcontent.value = ''
+    sortTasks()
+    saveToStorage()
+    populateAllTasksElem()
+  })
   
   const frequencyInputElem  = document.getElementById('new-frequency')
   const parsedFrequencyElem = document.getElementById('new-frequency-parsed')
   function updateParsedFrequency() {
     const frequency = frequencyInputElem.value
-    parsedFrequencyElem.textContent = (frequency == "") ? '' : strToDur(frequency)
+    parsedFrequencyElem.textContent = frequency == '' ? '' : prettyDurStr(strToDur(frequency))
   }
   frequencyInputElem.addEventListener('input', updateParsedFrequency)
   updateParsedFrequency()
@@ -505,7 +469,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   function updateParsedDue() {
     const due = dueInputElem.value
     const realDue = (due == "") ? endOfDayDateNum() : strToDateNum(due)
-    parsedDueElem.textContent = prettyDateNumStrShort(realDue)
+    parsedDueElem.textContent = prettyDateNumStrYearMonth(realDue)
   }
   dueInputElem.addEventListener('input', updateParsedDue)
   updateParsedDue()
@@ -514,15 +478,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const parsedDurationElem = document.getElementById('new-duration-parsed')
   function updateParsedDuration() {
     const duration = durationInputElem.value
-    const realDuration = (duration == "") ? null : strToDur(duration)
-    parsedDurationElem.textContent = realDuration != undefined ? prettyDurStr(realDuration) : ''
+    parsedDurationElem.textContent = duration == '' ? '' : prettyDurStr(strToDur(duration))
   }
   durationInputElem.addEventListener('input', updateParsedDuration)
   updateParsedDuration()
   
   
   populateAllTasksElem()
-  populateScheduledElem()
   
 })
 
