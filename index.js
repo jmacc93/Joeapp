@@ -1,10 +1,11 @@
 
 /*
-Done button should not be so close to schedule button
-Task elements should show all their details (frequency, etc) and that data should be editable
-Some sort of bug when scheduling old tasks amongst other scheduled old tasks: they don't go to the end like they should
-Some problem with interpreting due dates
 */
+
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./service_worker.js");
+}
 
 // #REGION utils
 
@@ -151,6 +152,17 @@ function prettyDurStr(durms) {
 
 function daysUntilDay(toDayNum, nowDayNum) {
   return mod(toDayNum - nowDayNum - 1, 7) + 1
+}
+
+function dateNumDayOrigin(dateNum) {
+  const date = new Date(dateNum)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+function dateNumDayOffset(dateNum, fromDateNumOpt = nowDateNum()) {
+  const dateOffset = dateNumDayOrigin(dateNum) - dateNumDayOrigin(fromDateNumOpt)
+  return dateOffset / (24 * 60 * 60 * 1000)
 }
 
 function addTimeToDate(startDate, durms) {
@@ -319,25 +331,19 @@ function logisticSigmoid(x) {
   return 1 / (1 + Math.exp(-x))
 }
 
-function calculatePriority(task, M = 3, k = 0.5) {
-  // M is max priority for overdue tasks
-  // k is priority decay rate
-  const timeTo = (task.due - nowDateNum()) / (1000 * 60 * 60 * 24) // in days
+function calculatePriority(task, M = 5, k = 10) {
   const bp = task.basePriority
-  if(timeTo > 0)
-    return bp * Math.exp(-k * timeTo)
-  else
-    return bp * M * logisticSigmoid(-k * timeTo + Math.log(1/(M - 1)))
+  const durHr = task.duration / (1000 * 60 * 60) // duration in hours
+  return bp * (1 + (M - 1)/(k*durHr + 1)) // Shorter tasks are worth more
 }
 
 function addNewTask(content, due, duration, basePriority = '1', frequency = '', autoschedule = false) {
   // nowDateNum() + task.frequency
   const realFrequency = (frequency == "") ? null : strToDur(frequency)
-  const realDue = (due == "") ? (frequency == null ? endOfDayDateNum() : nowDateNum() + realFrequency) : strToDateNum(due) // end of day by default
+  const realDue = (due == "") ? (realFrequency == null ? endOfDayDateNum() : nowDateNum() + realFrequency) : strToDateNum(due) // end of day by default
   const realDur = (duration == "") ? magUnitToDur(5, 'minutes') : strToDur(duration)
   const realBasePriority = parseInt(basePriority)
-  const id = randomString(8)
-  const newTask = {id, content, due:realDue, duration:realDur, basePriority:realBasePriority, frequency:realFrequency, autoschedule}
+  const newTask = {content, due:realDue, duration:realDur, basePriority:realBasePriority, frequency:realFrequency, autoschedule}
   tasks.push(newTask)
   populateAllTasksElem()
   saveToStorage()
@@ -354,11 +360,31 @@ function findTaskWithID(id) {
 }
 
 function sortTasks() {
-  tasks.sort((a, b)=> {
-    const aPriority = calculatePriority(a)
-    const bPriority = calculatePriority(b)
-    return bPriority - aPriority
-  })
+  const taskDays = {}
+  for(const t of tasks) {
+    const origin = dateNumDayOrigin(t.due)
+    if(!taskDays[origin])
+      taskDays[origin] = []
+    taskDays[origin].push(t)
+  }
+  const dayOrigins = Object.keys(taskDays).map(o=> parseInt(o))
+  dayOrigins.sort()
+  for(const d of dayOrigins)
+    taskDays[d] = taskDays[d].sort((a, b)=> a.due - b.due)
+  tasks = dayOrigins.map(o=> taskDays[o]).flat()
+}
+
+const scheduleGrace = 1000 * 60 * 1 // 1 minute grace
+function scheduleTasks() {
+  let curTime = nowDateNum()
+  for(const t of tasks) {
+    if(isToday(t.due)) {
+      t.scheduledTime = curTime
+      curTime += t.duration + scheduleGrace
+    } else {
+      t.scheduledTime = t.due + (1000 * 60 * 60 * 24)
+    }
+  }
 }
 
 // #ENDREGION
@@ -370,27 +396,76 @@ function makeTaskElem(task) {
   return elemFromTemplate('task-template', {
     basepriority:  n=> {
       n.textContent = task.basePriority
+      n.addEventListener('focusout', e=> {
+        task.basePriority = parseInt(n.textContent)
+        sortTasks()
+        scheduleTasks()
+        saveToStorage()
+        populateAllTasksElem()
+      })
     },
     priority: n=> {
       n.textContent = Math.round(calculatePriority(task))
     },
     frequency: n=> {
-      n.textContent = task.frequency != undefined ? `Every ${prettyDurStr(task.frequency)}` : ''
+      if(task.frequency == null) {
+        n.hidden = true
+        return
+      } else {
+        n.hidden = false
+        n.textContent = task.frequency != undefined ? `Every ${prettyDurStr(task.frequency)}` : ''
+      }
     },
     timeto: n=> {
       const nowms = nowDateNum()
-      const diffms = task.due - nowms
+      const diffms = task.scheduledTime - nowms
       n.textContent = Math.abs(diffms) < 1000 ? 'Now' : `In ${prettyDurStr(diffms)}`
     },
     duration:  n=> {
-      n.textContent = `For ${prettyDurStr(task.duration)}`
+      function setViewing() {
+        n.textContent = `For ${prettyDurStr(task.duration)}`
+      }
+      function setEditing() {
+        n.textContent = prettyDurStr(task.duration)
+      }
+      setViewing()
+      n.addEventListener('focusin', e=> {
+        setEditing()
+      })
+      n.addEventListener('focusout', e=> {
+        task.duration = strToDur(n.textContent)
+        sortTasks()
+        scheduleTasks()
+        saveToStorage()
+        populateAllTasksElem()
+      })
     },
     task: n=> {
       n.dataset.id = task.id
       if(nowDateNum() > task.due)
         n.classList.add('overdue')
+      if(isToday(task.scheduledTime))
+        n.classList.add('today')
     },
-    due: n=>n.textContent = `Due ${isToday(task.due) ? 'Today' : prettyDateNumStrYearMonth(task.due)}`,
+    due: n=>{
+      function setViewing() {
+        n.textContent = `Due ${isToday(task.due) ? 'Today' : prettyDateNumStrYearMonth(task.due)}`
+      }
+      function setEditing() {
+        n.textContent = prettyDateNumStrYearMonth(task.due)
+      }
+      setViewing()
+      n.addEventListener('focusin', e=> {
+        setEditing()
+      })
+      n.addEventListener('focusout', e=> {
+        task.due = strToDateNum(n.textContent)
+        sortTasks()
+        scheduleTasks()
+        saveToStorage()
+        populateAllTasksElem()
+      })
+    },
     done: n=>{
       const removeTime = 1000
       let mousedownTime = 0
@@ -399,17 +474,25 @@ function makeTaskElem(task) {
       })
       n.addEventListener('mouseup', e=> {
         const curTime = nowDateNum()
-        if(curTime - mousedownTime > removeTime) // totally remove, regardless if frequency is set
+        if(curTime - mousedownTime > removeTime) { // totally remove, regardless if frequency is set
           tasks.splice(tasks.indexOf(task), 1)
-        else if(task.frequency != undefined) // go again later: adjust due date
+        } else if(task.frequency != undefined) { // go again later: adjust due date
           task.due = nowDateNum() + task.frequency
-        else // completely done, so remove
+        } else { // completely done, so remove
           tasks.splice(tasks.indexOf(task), 1)
+        }
         saveToStorage()
         populateAllTasksElem()
       })
     },
-    content: n=>n.textContent = task.content
+    content: n=>{
+      n.textContent = task.content
+      n.addEventListener('focusout', e=> {
+        task.content = n.textContent
+        saveToStorage()
+        populateAllTasksElem()
+      })
+    }
   })
 }
 
@@ -428,6 +511,7 @@ function populateAllTasksElem() {
 document.addEventListener('DOMContentLoaded', async ()=>{
   await loadFromStorage()
   sortTasks()
+  scheduleTasks()
   
   const taskSearchElem = document.getElementById('task-search')
   taskSearchElem.addEventListener('input', e=>{
@@ -451,6 +535,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     addNewTask(newcontent.value, newdue.value, newduration.value, newbasepriority.value, newfrequency.value)
     newcontent.value = ''
     sortTasks()
+    scheduleTasks()
     saveToStorage()
     populateAllTasksElem()
   })

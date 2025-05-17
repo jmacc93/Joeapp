@@ -1,4 +1,4 @@
-<!DOCTYPE html><head><title>Joeapp</title><link rel="manifest" href="manifest.json"/><meta name="viewport" content="initial-scale=1, width=device-width"/><style>body {
+<!DOCTYPE html><head><title>Joeapp</title><link rel="manifest" href="manifest.json"/><meta name="viewport" content="initial-scale=0.7, width=device-width, maximum-scale=0.7, user-scalable=no"/><style>body {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -24,21 +24,21 @@ button {
   flex-direction: row;
 }
 #newtask-content-area {
-  flex-grow: 5;
+  flex-grow: 4;
   display: flex;
   flex-direction: column;
 }
 #newtask-options-area {
-  width: 40%;
+  width: 60%;
 }
 #newtask-options-area  input {
   width: 100%;
 }
 #new-inputs-cols {
-  width: 50%;
+  width: 40%;
 }
 #new-parsed-cols {
-  width: 30%;
+  width: 60%;
 }
 #new-labels-cols {
   width: 20%;
@@ -52,7 +52,7 @@ button {
 }
 #new-add {
   margin-left: 1em;
-  width: 80%;
+  width: 60%;
 }
 
 #all-tasks-container[open] {
@@ -126,4 +126,16 @@ button {
 }
 .task.overdue {
   background-color: color-mix(in srgb, white, red 10%);
-}</style><script src="./index.js"></script><template id="task-template"><div class="task"><div class="top"><span><span class="basepriority"></span><span class="priority"></span></span><span class="due"></span><span class="frequency"></span><span class="timeto"></span><span class="duration"></span></div><div class="bottom"><div class="left"><button class="done">Done</button></div><p class="content"></p></div></div></template><template id="scheduled-template"><div class="scheduled-task"><div class="top"><div class="datestr"></div><div class="timetostr"></div><button class="unschedule">Unschedule</button></div><div class="task-spot"></div></div></template><body><div id="newtask-area"><div id="newtask-content-area"><div id="newtask-content-top"><span>Content</span><button id="new-add">Add</button></div><textarea id="new-content"></textarea></div><table id="newtask-options-area"><colgroup><col id="new-inputs-cols" span="1"/><col id="new-parsed-cols" span="1"/><col id="new-labels-cols" span="1"/></colgroup><tbody><tr><td><input id="new-frequency" type="text"/></td><td><div class="new-parsed" id="new-frequency-parsed"></div></td><td><span>Frequency</span></td></tr><tr><td><input id="new-base-priority" type="number" value="1"/></td><td><div class="new-parsed" id="new-base-priority-parsed"></div></td><td><span>Priority</span></td></tr><tr><td><input id="new-due" type="text"/></td><td><div class="new-parsed" id="new-due-parsed"></div></td><td><span>Due</span></td></tr><tr><td><input id="new-duration" type="text"/></td><td><div class="new-parsed" id="new-duration-parsed"></div></td><td><span>Duration</span></td></tr></tbody></table></div><input type="text" id="task-search"/><div id="all-tasks"></div></body></head>
+}
+.task.today {
+  background-color: color-mix(in srgb, white, blue 10%);
+}
+*[contenteditable='plaintext-only'] {
+  text-decoration: none;
+}
+.notselectable {
+  user-select: none;
+}
+.task span {
+  user-select: none;
+}</style><script src="./index.js"></script><template id="task-template"><div class="task"><div class="top"><span><span class="basepriority" contenteditable="plaintext-only" spellcheck="false"></span><span class="notselectable priority"></span></span><span class="due" contenteditable="plaintext-only" spellcheck="false"></span><span class="frequency" contenteditable="plaintext-only" spellcheck="false" hidden="hidden"></span><span class="notselectable timeto"></span><span class="duration" contenteditable="plaintext-only" spellcheck="false"></span></div><div class="bottom"><div class="left"><button class="done">Done</button></div><p class="content" contenteditable="plaintext-only" spellcheck="false"></p></div></div></template><template id="scheduled-template"><div class="scheduled-task"><div class="top"><div class="datestr"></div><div class="timetostr"></div><button class="unschedule">Unschedule</button></div><div class="task-spot"></div></div></template><body tabindex="-1"><div id="newtask-area"><div id="newtask-content-area"><div id="newtask-content-top"><span>Content</span><button id="new-add">Add</button></div><textarea id="new-content"></textarea></div><table id="newtask-options-area"><colgroup><col id="new-inputs-cols" span="1"/><col id="new-parsed-cols" span="1"/><col id="new-labels-cols" span="1"/></colgroup><tbody><tr><td><input id="new-frequency" type="text"/></td><td><div class="new-parsed" id="new-frequency-parsed"></div></td><td><span>Freq</span></td></tr><tr><td><input id="new-base-priority" type="number" value="1"/></td><td><div class="new-parsed" id="new-base-priority-parsed"></div></td><td><span>Prior</span></td></tr><tr><td><input id="new-due" type="text"/></td><td><div class="new-parsed" id="new-due-parsed"></div></td><td><span>Due</span></td></tr><tr><td><input id="new-duration" type="text"/></td><td><div class="new-parsed" id="new-duration-parsed"></div></td><td><span>Dur</span></td></tr></tbody></table></div><input type="text" id="task-search"/><div id="all-tasks"></div></body></head>
