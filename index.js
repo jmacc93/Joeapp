@@ -3,9 +3,8 @@
 */
 
 
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./service_worker.js");
-}
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.register("./service_worker.js").then(()=>console.log("Service worker registered"))
 
 // #REGION utils
 
@@ -102,6 +101,7 @@ function magUnitToDur(mag, unit) {
     case 'weeks':   return mag * 7 * 24 * 60 * 60 * 1000
     case 'months':  return mag * 30 * 24 * 60 * 60 * 1000
     case 'years':   return mag * 365 * 24 * 60 * 60 * 1000
+    default: throw new Error(`Unknown unit: ${unit}`)
   }
 }
 
@@ -118,7 +118,7 @@ function strToDur(str) {
   const lowstr = str.toLowerCase()
   let [num, unit] = strToDurSpec(lowstr)
   if(num == null)
-    return null
+    throw new Error(`Unknown duration: ${str}`)
   unit = (unit == null) ? 'minutes' : standardizeUnit(unit, strToDur_unitSpecs)
   return magUnitToDur(num, unit)
 }
@@ -228,7 +228,7 @@ function strToDate(str) {
     return new Date(year, month, day)
   }
   // not a month/day, so try to parse as a day offset +dd
-  const dayOffsetMatch = str.match(/\+(\d{0,2})/)
+  const dayOffsetMatch = str.match(/\+(\d+)/)
   if(dayOffsetMatch != null) {
     const dayOffset = Number(dayOffsetMatch[1])
     const curDate = new Date()
@@ -236,7 +236,7 @@ function strToDate(str) {
     return new Date(new Date().getFullYear(), curDate.getMonth(), day)
   }
   // not a day offset, so try to parse as dd
-  const dayMatch = str.match(/(\d{0,2})/)
+  const dayMatch = str.match(/(\d{1,2})/)
   if(dayMatch != null) {
     const day = Number(dayMatch[1])
     const curDate = new Date()
@@ -244,7 +244,7 @@ function strToDate(str) {
     return new Date(new Date().getFullYear(), month, day)
   }
   // unknown
-  return null
+  throw new Error(`Unknown date: ${str}`)
 }
 function strToDateNum(str) {
   return strToDate(str).getTime()
@@ -408,13 +408,29 @@ function makeTaskElem(task) {
       n.textContent = Math.round(calculatePriority(task))
     },
     frequency: n=> {
-      if(task.frequency == null) {
-        n.hidden = true
-        return
-      } else {
-        n.hidden = false
-        n.textContent = task.frequency != undefined ? `Every ${prettyDurStr(task.frequency)}` : ''
+      function setViewing() {
+        if(task.frequency == null) {
+          n.hidden = true
+          return
+        } else {
+          n.hidden = false
+          n.textContent = task.frequency != undefined ? `Every ${prettyDurStr(task.frequency)}` : ''
+        }
       }
+      function setEditing() {
+        n.textContent = prettyDurStr(task.frequency)
+      }
+      setViewing()
+      n.addEventListener('focusin', e=> {
+        setEditing()
+      })
+      n.addEventListener('focusout', e=> {
+        task.frequency = strToDur(n.textContent)
+        sortTasks()
+        scheduleTasks()
+        saveToStorage()
+        populateAllTasksElem()
+      })
     },
     timeto: n=> {
       const nowms = nowDateNum()
@@ -541,32 +557,52 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   })
   
   const frequencyInputElem  = document.getElementById('new-frequency')
-  const parsedFrequencyElem = document.getElementById('new-frequency-parsed')
-  function updateParsedFrequency() {
-    const frequency = frequencyInputElem.value
-    parsedFrequencyElem.textContent = frequency == '' ? '' : prettyDurStr(strToDur(frequency))
+  function checkNewFrequency() {
+    if(frequencyInputElem.value == '') {
+      frequencyInputElem.classList.remove('error')
+      return
+    }
+    try {
+      strToDur(frequencyInputElem.value)
+      frequencyInputElem.classList.remove('error')
+    } catch(err) {
+      frequencyInputElem.classList.add('error')
+    }
   }
-  frequencyInputElem.addEventListener('input', updateParsedFrequency)
-  updateParsedFrequency()
+  frequencyInputElem.addEventListener('input', checkNewFrequency)
+  checkNewFrequency()
   
   const dueInputElem = document.getElementById('new-due')
-  const parsedDueElem = document.getElementById('new-due-parsed')
-  function updateParsedDue() {
-    const due = dueInputElem.value
-    const realDue = (due == "") ? endOfDayDateNum() : strToDateNum(due)
-    parsedDueElem.textContent = prettyDateNumStrYearMonth(realDue)
+  function checkNewDue() {
+    if(dueInputElem.value == '') {
+      dueInputElem.classList.remove('error')
+      return
+    }
+    try {
+      strToDateNum(dueInputElem.value)
+      dueInputElem.classList.remove('error')
+    } catch(err) {
+      dueInputElem.classList.add('error')
+    }
   }
-  dueInputElem.addEventListener('input', updateParsedDue)
-  updateParsedDue()
+  dueInputElem.addEventListener('input', checkNewDue)
+  checkNewDue()
   
   const durationInputElem = document.getElementById('new-duration')
-  const parsedDurationElem = document.getElementById('new-duration-parsed')
-  function updateParsedDuration() {
-    const duration = durationInputElem.value
-    parsedDurationElem.textContent = duration == '' ? '' : prettyDurStr(strToDur(duration))
+  function checkNewDuration() {
+    if(durationInputElem.value == '') {
+      durationInputElem.classList.remove('error')
+      return
+    }
+    try {
+      strToDur(durationInputElem.value)
+      durationInputElem.classList.remove('error')
+    } catch(err) {
+      durationInputElem.classList.add('error')
+    }
   }
-  durationInputElem.addEventListener('input', updateParsedDuration)
-  updateParsedDuration()
+  durationInputElem.addEventListener('input', checkNewDuration)
+  checkNewDuration()
   
   
   populateAllTasksElem()
