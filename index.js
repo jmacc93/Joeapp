@@ -485,10 +485,16 @@ function makeTaskElem(task) {
     done: n=>{
       const removeTime = 1000
       let mousedownTime = 0
-      n.addEventListener('mousedown', e=> {
+      function mousedown(e) {
+        e.preventDefault()
+        e.stopPropagation()
         mousedownTime = nowDateNum()
-      })
-      n.addEventListener('mouseup', e=> {
+      }
+      n.addEventListener('mousedown', mousedown)
+      n.addEventListener('touchstart', mousedown)
+      function mouseup(e) {
+        e.preventDefault()
+        e.stopPropagation()
         const curTime = nowDateNum()
         if(curTime - mousedownTime > removeTime) { // totally remove, regardless if frequency is set
           tasks.splice(tasks.indexOf(task), 1)
@@ -499,7 +505,9 @@ function makeTaskElem(task) {
         }
         saveToStorage()
         populateAllTasksElem()
-      })
+      }
+      n.addEventListener('mouseup', mouseup)
+      n.addEventListener('touchend', mouseup)
     },
     content: n=>{
       n.textContent = task.content
