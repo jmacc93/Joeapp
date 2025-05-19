@@ -549,20 +549,31 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     }
   })
   
-  const addButtonElem = document.getElementById('new-add')
-  addButtonElem.addEventListener('click', () => {
-    const newcontent           = document.getElementById('new-content')
-    const newfrequency         = document.getElementById('new-frequency')
-    const newbasepriority      = document.getElementById('new-base-priority')
-    const newdue               = document.getElementById('new-due')
-    const newduration          = document.getElementById('new-duration')
+  function addTaskUsingNewElems() {
+    const newcontent      = document.getElementById('new-content')
+    const newfrequency    = document.getElementById('new-frequency')
+    const newbasepriority = document.getElementById('new-base-priority')
+    const newdue          = document.getElementById('new-due')
+    const newduration     = document.getElementById('new-duration')
     addNewTask(newcontent.value, newdue.value, newduration.value, newbasepriority.value, newfrequency.value)
     newcontent.value = ''
     sortTasks()
     scheduleTasks()
     saveToStorage()
     populateAllTasksElem()
+  }
+  
+  const newContentButton = document.getElementById('new-content')
+  newContentButton.addEventListener('keydown', e=>{
+    if(e.key == 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      addTaskUsingNewElems()
+    }
   })
+  
+  const addButtonElem = document.getElementById('new-add')
+  addButtonElem.addEventListener('click', addTaskUsingNewElems)
   
   const frequencyInputElem  = document.getElementById('new-frequency')
   function checkNewFrequency() {
@@ -612,6 +623,31 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   durationInputElem.addEventListener('input', checkNewDuration)
   checkNewDuration()
   
+  const copyBackupElem = document.getElementById('copy-backup')
+  copyBackupElem.addEventListener('click', e=>{
+    navigator.clipboard.writeText(JSON.stringify({tasks}))
+  })
+  const pasteBackupElem = document.getElementById('paste-backup')
+  let pasteMousedownTime = undefined
+  function pasteMousedown(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    pasteMousedownTime = nowDateNum()
+  }
+  pasteBackupElem.addEventListener('mousedown', pasteMousedown)
+  pasteBackupElem.addEventListener('touchstart', pasteMousedown)
+  function pasteMouseup(e) {
+    if(nowDateNum() - pasteMousedownTime < 2000)
+      return
+    navigator.clipboard.readText().then(text=>{
+      const obj = JSON.parse(text)
+      tasks = obj.tasks
+      saveToStorage()
+      populateAllTasksElem()
+    })
+  }
+  pasteBackupElem.addEventListener('mouseup', pasteMouseup)
+  pasteBackupElem.addEventListener('touchend', pasteMouseup)
   
   populateAllTasksElem()
   

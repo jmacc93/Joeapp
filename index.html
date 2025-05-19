@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow-y: hidden;
   font-size: 1.3em;
 }
 input {
@@ -30,6 +29,10 @@ button {
 }
 #command-area .error {
   background-color: color-mix(in srgb, white, red 10%);
+}
+
+#search-and-backup > #task-search {
+  width: 70%;
 }
 
 #all-tasks-container[open] {
@@ -115,4 +118,4 @@ button {
 }
 .task span {
   user-select: none;
-}</style><script src="./index.js"></script><template id="task-template"><div class="task"><div class="top"><span><span class="basepriority" contenteditable="plaintext-only" spellcheck="false"></span><span class="notselectable priority"></span></span><span class="due" contenteditable="plaintext-only" spellcheck="false"></span><span class="frequency" contenteditable="plaintext-only" spellcheck="false" hidden="hidden"></span><span class="notselectable timeto"></span><span class="duration" contenteditable="plaintext-only" spellcheck="false"></span></div><div class="bottom"><div class="left"><button class="done">Done</button></div><p class="content" contenteditable="plaintext-only" spellcheck="false"></p></div></div></template><template id="scheduled-template"><div class="scheduled-task"><div class="top"><div class="datestr"></div><div class="timetostr"></div><button class="unschedule">Unschedule</button></div><div class="task-spot"></div></div></template><body tabindex="-1"><div id="command-area"><span>Do:</span><input id="new-content" type="text"/><br/><span>Dur:</span><input id="new-duration" type="text" value="5 min"/><span>Freq:</span><input id="new-frequency" type="text" value=""/><span>Pr:</span><input id="new-base-priority" type="number" value="1"/><span>Due:</span><input id="new-due" type="text" value="today"/><button id="new-add">Add</button></div><input type="text" id="task-search"/><div id="all-tasks"></div></body></head>
+}</style><script src="./index.js"></script><template id="task-template"><div class="task"><div class="top"><span><span class="basepriority" contenteditable="plaintext-only" spellcheck="false"></span><span class="notselectable priority"></span></span><span class="due" contenteditable="plaintext-only" spellcheck="false"></span><span class="frequency" contenteditable="plaintext-only" spellcheck="false" hidden="hidden"></span><span class="notselectable timeto"></span><span class="duration" contenteditable="plaintext-only" spellcheck="false"></span></div><div class="bottom"><div class="left"><button class="done">Done</button></div><p class="content" contenteditable="plaintext-only" spellcheck="false"></p></div></div></template><template id="scheduled-template"><div class="scheduled-task"><div class="top"><div class="datestr"></div><div class="timetostr"></div><button class="unschedule">Unschedule</button></div><div class="task-spot"></div></div></template><body tabindex="-1"><div id="command-area"><span>Do:</span><input id="new-content" type="text"/><br/><span>Dur:</span><input id="new-duration" type="text" value="5 min"/><span>Freq:</span><input id="new-frequency" type="text" value=""/><span>Pr:</span><input id="new-base-priority" type="number" value="1"/><span>Due:</span><input id="new-due" type="text" value="today"/><button id="new-add">Add</button></div><div id="search-and-backup"><input type="text" id="task-search"/><button id="copy-backup">Copy</button><button id="paste-backup">Paste</button></div><div id="all-tasks"></div></body></head>
