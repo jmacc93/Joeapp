@@ -1,121 +1,15 @@
-<!DOCTYPE html><head><title>Joeapp</title><link rel="manifest" href="manifest.json"/><meta name="viewport" content="initial-scale=0.8, width=device-width, maximum-scale=0.8, user-scalable=no"/><style>body {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  font-size: 1.3em;
-}
-input {
-  font-size: 1em;
-}
-textarea {
-  font-size: 1.5em;
-}
-button {
-  font-size: 1em;
-}
-#mode-tabs > .modetab.active {
-  background-color: color-mix(in srgb, white, yellow 10%);
-}
-
-#command-area {
-  border: 1px solid black;
-}
-#command-area > #new-content {
-  width: 70%;
-  resize: none;
-}
-#command-area input {
-  width: 10%;
-}
-#command-area .error {
-  background-color: color-mix(in srgb, white, red 10%);
-}
-
-#search-and-backup > #task-search {
-  width: 50%;
-}
-
-#all-tasks-container[open] {
-  height: 20vh;
-  margin-bottom: 1.5em;
-}
-#all-tasks-and-search {
-  display: flex;
-  flex-direction: column;
-  overflow-y: scroll;
-  border: 1px solid black;
-  height: 100%
-}
-#scheduled-container {
-  flex-grow: 4;
-}
-#reschedule-all {
-  background-color: color-mix(in srgb, white, green 10%);
-}
-#scheduled {
-  overflow-y: scroll;
-  border: 1px solid black;
-  height: 90%;
-}
-#scheduled > .scheduled-task {
-  padding: 5px;
-}
-#scheduled > .scheduled-task > .top {
-  display: flex;
-  flex-direction: row;
-}
-#scheduled > .scheduled-task > .top > * {
-  margin-right: 1em;
-}
-#scheduled > :first-child {
-  background-color: color-mix(in srgb, white, blue 10%);
-}
-.task {
-  border: 1px solid rgba(10, 10, 10, 0.2);
-  margin: 5px;
-  padding: 5px;
-  display: flex;
-  flex-direction: column;
-}
-.task > .top {
-  display: flex;
-}
-.task > .top > * {
-  margin-right: 1em;
-}
-.task .priority:before {
-  content: " (";
-  color: gray;
-}
-.task .priority:after {
-  content: ")";
-  color: gray;
-}
-.task > .bottom {
-  display: flex;
-  flex-direction: row;
-}
-.task > .bottom > .left {
-  padding-right: 5px;
-  display: flex;
-  flex-direction: column;
-}
-.task > .bottom > .content {
-  margin: 0;
-  white-space: pre-wrap;
-}
-.task.overdue {
-  background-color: color-mix(in srgb, white, red 10%);
-}
-.task.today {
-  background-color: color-mix(in srgb, white, blue 10%);
-}
-*[contenteditable='plaintext-only'] {
-  text-decoration: none;
-}
-.notselectable {
-  user-select: none;
-}
-.task span {
-  user-select: none;
-}</style><script src="./index.js"></script><template id="task-template"><div class="task"><div class="top"><span><span class="basepriority" contenteditable="plaintext-only" spellcheck="false"></span><span class="notselectable priority"></span></span><span class="due" contenteditable="plaintext-only" spellcheck="false"></span><span class="frequency" contenteditable="plaintext-only" spellcheck="false" hidden="hidden"></span><span class="notselectable timeto"></span><span class="duration" contenteditable="plaintext-only" spellcheck="false"></span></div><div class="bottom"><div class="left"><button class="done">Done</button></div><p class="content" contenteditable="plaintext-only" spellcheck="false"></p></div></div></template><template id="scheduled-template"><div class="scheduled-task"><div class="top"><div class="datestr"></div><div class="timetostr"></div><button class="unschedule">Unschedule</button></div><div class="task-spot"></div></div></template><body tabindex="-1"><div id="command-area"><span>Do:</span><input id="new-content" type="text"/><br/><span>Dur:</span><input id="new-duration" type="text" value="5 min"/><span>Freq:</span><input id="new-frequency" type="text" value=""/><span>Pr:</span><input id="new-base-priority" type="number" value="1"/><span>Due:</span><input id="new-due" type="text" value="today"/><button id="new-add">Add</button></div><div id="search-and-backup"><input type="text" id="task-search"/><button id="copy-backup">Copy</button><button id="paste-backup">Paste</button></div><div id="all-tasks"></div></body></head>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Joeapp</title>
+    <link rel="manifest" href="manifest.json"/>
+    <meta name="viewport" content="initial-scale=1.0, width=device-width, maximum-scale=1.0, user-scalable=no"/>
+    <script src="./index.js"></script>
+  </head>
+  <body>
+    <div id="page"></div>
+    <div id="popup-parent">
+      <div id="popup" hidden></div>
+    </div>
+  </body>
+</html>
