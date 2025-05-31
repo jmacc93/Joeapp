@@ -657,10 +657,14 @@ async function loadFromStorage() {
   const contents = await storageFile.text()
   if(contents == '')
     return
-  const parsedContents = JSON.parse(contents)
-  tasks    = parsedContents.tasks
-  daystart = parsedContents.daystart
-  dayend   = parsedContents.dayend
+  try{
+    const parsedContents = JSON.parse(contents)
+    tasks    = parsedContents.tasks
+    daystart = parsedContents.daystart
+    dayend   = parsedContents.dayend
+  } catch(err) {
+    errorPopup(`Error parsing saved contents: ${err}`)
+  }
 }
 
 // #ENDREGION
@@ -825,9 +829,13 @@ function shouldScheduleAtRegularTime(task) {
 }
 
 function nextRegularTime(task) {
+  const completedDayOrigin = dateNumDayOrigin(task.lastCompleted)
   const nextTime = task.lastCompleted + task.frequency
-  // tasks longer than a day should be rounded down to the day
-  return (task.frequency > dayMsCount) ? dateNumDayOrigin(nextTime) : nextTime
+  let nextTimeDayMs = dateNumToDayMsCount(nextTime)
+  if(nextTimeDayMs > dayend) // dayend is considered the end of the day
+    nextTimeDayMs += 1 * dayMsCount  // advance 1 day to guarantee we end up going to the start of the next day
+    // tasks going to the next day should be rounded down to the day
+  return dateNumDayOrigin(nextTime)
 }
 
 /// Note: this just removes, schedules, then adds the given tasks in priority order
@@ -928,6 +936,9 @@ addCss(`
   .task > .top > * {
     margin-right: 1em;
   }
+  .command-line > .iconbutton {
+    margin-right: 0.2em;
+  }
 `)
 function makeTaskElem(ogtask) {
   const id = ogtask.id
@@ -988,7 +999,17 @@ function makeTaskElem(ogtask) {
           })
         )
       ),
+      h('button', setElemClass('iconbutton'), '!!', makeIntoCheckbutton({
+        initialState: ogtask.isimportant,
+        toggleFunc: (_, state)=>{
+          const task = findTaskById(id)
+          task.isimportant = state
+          saveToStorage()
+          updateCurrentPage()
+        }
+      })),
       h('button', setElemClass('iconbutton'), '◬', makeIntoCheckbutton({
+        initialState: ogtask.fixedtime,
         toggleFunc: (_, state)=>{
           const task = findTaskById(id)
           task.fixedtime = state
@@ -1502,55 +1523,6 @@ addCss(`
 `)
 function makeAllTaskPage() {
   return h('div', setElemId('all-tasks-page'),
-    h('div', setElemClass('new-task-area'),
-      h('div',
-        h('span', 'Do'),
-        h('input', setElemClass('new-content'), n=> {
-          n.type = 'text'
-          n.addEventListener('keydown', e=>{
-            if(e.key == 'Enter') {
-              e.preventDefault()
-              e.stopPropagation()
-              addTaskUsingNewElems('#all-tasks-page')
-            }
-          })
-        })
-      ),
-      h('div',
-        // h('span', setElemId('new-duration'), makeIntoTextualInput({
-        //   initialValue: null,
-        //   tovaluefn: v=> (v == '') ? null : strToDur(v),
-        //   checkfn: strToDur,
-        //   totextfn: v=>(v == null) ? '' : prettyDurStr(v),
-        //   displayfn: v=> (v == null) ? `Duration?` : `For ${prettyDurStr(v)}`
-        // })),
-        appOn(makeMultiselector('For',
-          v=>{},
-          ['5 m', 5*minuteMsCount],
-          ['15 m', 15*minuteMsCount],
-          ['30 m', 30*minuteMsCount],
-          ['1 hr', 1*hourMsCount],
-          ['2 hr', 2*hourMsCount],
-          ['4 hr', 4*hourMsCount],
-        ), setElemClass('new-duration')),
-        h('span', setElemClass('new-frequency'), makeIntoTextualInput({
-          initialValue: null,
-          tovaluefn: v=> (v == '') ? null : strToDur(v),
-          checkfn: strToDur,
-          totextfn: v=>(v == null) ? '' : prettyDurStr(v),
-          displayfn: v=> (v == null) ? `Periodic?` : `Every ${prettyDurStr(v)}`
-        })),
-        h('span', setElemClass('new-at'), makeIntoTextualInput({
-          initialValue: null,
-          tovaluefn: txt=> (txt == '') ? null : hourMinStrToDayMins(txt),
-          checkfn: txt=> (txt == '') ? null : hourMinStrToDayMins(txt),
-          totextfn: v=> (v == null) ? '' : dayMinsTo12HourMinStr(v),
-          displayfn: v=> (v == null) ? `Time?` : `At ${dayMinsTo12HourMinStr(v)}`
-        })),
-        h('button', setElemClass('new-important'), '!!', makeIntoCheckbutton({initialState: false})),
-        h('button', setElemClass('new-fixed-time'), '◬', makeIntoCheckbutton({initialState: false})),
-      )
-    ),
     h('div', setElemClass('command-line'),
       h('button', setElemClass('options-tab'), setElemClass('page-link', 'iconbutton'), '⚙', n=> n.addEventListener('click', e=>{
         switchToPage('options-page')
@@ -1558,20 +1530,19 @@ function makeAllTaskPage() {
       h('button', setElemClass('all-tasks-tab'), setElemClass('page-link', 'iconbutton'), '🜁', n=> n.addEventListener('click', e=>{
         switchToPage('timeline-page')
       })),
-      h('button', setElemClass('new-add'), setElemClass('iconbutton'), '✔', n=> n.addEventListener('click', e=>addTaskUsingNewElems('#all-tasks-page')))
+      h('input', setElemClass('search-bar'), n=> {
+        n.type = 'text'
+        n.addEventListener('input', e=>{
+          const searchstr = n.value.toLowerCase()
+          const taskContentElems = document.querySelectorAll('#all-tasks-page .all-tasks .task .content')
+          for(const taskContentElem of taskContentElems) {
+            const taskBlock = taskContentElem.closest('.task-list-block')
+            const matches   = taskContentElem.textContent.toLowerCase().includes(searchstr)
+            taskBlock.style.display = matches ? '' : 'none'
+          }
+        })
+      }),
     ),
-    h('input', setElemClass('search-bar'), n=> {
-      n.type = 'text'
-      n.addEventListener('input', e=>{
-        const searchstr = n.value.toLowerCase()
-        const taskContentElems = document.querySelectorAll('#all-tasks-page .all-tasks .task .content')
-        for(const taskContentElem of taskContentElems) {
-          const taskBlock = taskContentElem.closest('.task-list-block')
-          const matches   = taskContentElem.textContent.toLowerCase().includes(searchstr)
-          taskBlock.style.display = matches ? '' : 'none'
-        }
-      })
-    }),
     h('div', setElemClass('all-tasks-parent'),
       h('div', setElemClass('all-tasks')),
       h('div', setElemClass('tasks-overscroll'))
@@ -1595,8 +1566,8 @@ addCss(`
 function makeOptionsPage() {
   return h('div', setElemId('options-page'),
     h('div', setElemId('command-line'),
-      h('button', setElemId('options-tab'), setElemClass('page-link'), 'All tasks', n=> n.addEventListener('click', e=> switchToPage('all-tasks-page'))),
-      h('button', setElemId('timeline-tab'), setElemClass('page-link'), 'Timeline', n=> n.addEventListener('click', e=> switchToPage('timeline-page')))
+      h('button', setElemId('options-tab'), setElemClass('page-link', 'iconbutton'), '▤', n=> n.addEventListener('click', e=> switchToPage('all-tasks-page'))),
+      h('button', setElemId('timeline-tab'), setElemClass('page-link', 'iconbutton'), '🜁', n=> n.addEventListener('click', e=> switchToPage('timeline-page')))
     ),
     h('div', setElemId('options-list'),
       h('div', setElemClass('options-row'),
@@ -1652,6 +1623,13 @@ function makeOptionsPage() {
         yesNoQuestionPopup(`Are you sure?`,
           ()=> {
             navigator.clipboard.readText().then(text => {
+              if(text.trim() == '') {
+                infoPopup('Blank JSON given, reinitializing saved data')
+                tasks = []
+                daystart = 6*hourMsCount
+                dayend = (12+10)*hourMsCount
+                return
+              }
               try {
                 const obj = JSON.parse(text)
                 tasks = obj.tasks
