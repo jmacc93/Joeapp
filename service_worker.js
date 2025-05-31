@@ -4,12 +4,12 @@ self.addEventListener("install", (e) => {
     (async () => {
       const cache = await caches.open('joeapp_cache')
       await cache.addAll([
-        "/index.js",
-        "/service_worker.js",
-        "/index.html",
-        "/icon_512.png",
-        "/icon_192.png",
-        "/favicon.ico",
+        "/Joeapp/index.js",
+        "/Joeapp/service_worker.js",
+        "/Joeapp/index.html",
+        "/Joeapp/icon_512.png",
+        "/Joeapp/icon_192.png",
+        "/Joeapp/favicon.ico",
       ])
     })(),
   )
