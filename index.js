@@ -85,6 +85,13 @@ function todo() {
   print('TODO')
 }
 
+function nanToUndefined(x) {
+  if(Number.isNaN(x))
+    return undefined
+  else
+    return x
+}
+
 // #ENDREGION
 
 
@@ -625,10 +632,15 @@ function dateNumNext5Min(datenum) {
 
 // #REGION state
 
+const defaultTasks = []
+const defaultDaystart = 1000 * 60 * 60 * 6
+const defaultDayend = 1000 * 60 * 60 * (12 + 10)
+
 // these 3 set by loadFromStorage (and saved via saveToStorage)
-let tasks = []
-let daystart = 1000 * 60 * 60 * 6
-let dayend = 1000 * 60 * 60 * (12 + 10)
+let tasks = defaultTasks
+let daystart = defaultDaystart
+let dayend = defaultDayend
+
 
 /// Finds the start of the working day for the given datenum (regardless the time of that datenum)
 function dateNumToDayStart(datenum) {
@@ -655,13 +667,13 @@ async function loadFromStorage() {
   const storageFileHandle = await opfsRoot.getFileHandle('storage.json', {create:true})
   const storageFile = await storageFileHandle.getFile()
   const contents = await storageFile.text()
-  if(contents == '')
+  if(contents.trim() == '')
     return
   try{
     const parsedContents = JSON.parse(contents)
-    tasks    = parsedContents.tasks
-    daystart = parsedContents.daystart
-    dayend   = parsedContents.dayend
+    tasks    = nanToUndefined(parsedContents.tasks) ?? defaultTasks
+    daystart = nanToUndefined(parsedContents.daystart) ?? defaultDaystart
+    dayend   = nanToUndefined(parsedContents.dayend) ?? defaultDayend
   } catch(err) {
     errorPopup(`Error parsing saved contents: ${err}`)
   }
@@ -1205,7 +1217,7 @@ function updateTimelinePage() {
   const dayRelation = isPastDay(timelineDatenum) ? 'past' : isToday(timelineDatenum) ? 'today' : 'future'
   addTimelineBlocks(timelineDatenum, dayRelation)
   if(scrollToNow)
-    document.querySelector('.time-tick.now').scrollIntoView()
+    document.querySelector('.time-tick.now')?.scrollIntoView()
 }
 
 let timelineDatenum = undefined
@@ -1625,9 +1637,9 @@ function makeOptionsPage() {
             navigator.clipboard.readText().then(text => {
               if(text.trim() == '') {
                 infoPopup('Blank JSON given, reinitializing saved data')
-                tasks = []
-                daystart = 6*hourMsCount
-                dayend = (12+10)*hourMsCount
+                tasks    = defaultTasks
+                daystart = defaultDaystart
+                dayend   = defaultDayend
                 return
               }
               try {
@@ -1837,9 +1849,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     makeOptionsPage()
   ))
 
-  // addNewTask({daydatenum:nowDateNum(), content:'Clean tub', duration:'15 min', frequency:'5 days'})
-  // addNewTask({daydatenum:nowDateNum(), content:'Do other stuff', duration:'5 min'})
-  
   await loadFromStorage()
   switchToPage('timeline-page')
 })
